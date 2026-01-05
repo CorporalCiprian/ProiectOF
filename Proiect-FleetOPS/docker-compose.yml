@@ -1,0 +1,29 @@
+services:
+  db:
+    image: postgres:15
+    container_name: postgres_db
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 1q2w3e
+      POSTGRES_DB: fleet_db
+    ports:
+      - "5432:5432"
+
+  routing-service:
+    build: ./routing-service
+    container_name: routing_cpp
+    ports:
+      - "8081:8081"
+
+  gateway-service:
+    build: ./gateway-service
+    container_name: gateway_java
+    ports:
+      - "8080:8080"
+    environment:
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/fleet_db
+      - SPRING_DATASOURCE_USERNAME=user
+      - SPRING_DATASOURCE_PASSWORD=password
+    depends_on:
+      - db
+      - routing-service
