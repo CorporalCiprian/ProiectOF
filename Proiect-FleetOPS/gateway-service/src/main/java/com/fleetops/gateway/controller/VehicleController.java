@@ -38,21 +38,16 @@ public class VehicleController {
 
     @PostMapping("/{id}/start-trip")
     public String startTrip(@PathVariable Long id, @RequestBody Map<String, Double> dest) {
-        Object rawResponse = routingService.getRouteFromCpp(10, 10, dest.get("x"), dest.get("y"));
+        Object response = routingService.getRouteFromCpp(10, 10, dest.get("x"), dest.get("y"));
 
-        if (rawResponse instanceof Map) {
-            Map<String, Object> response = (Map<String, Object>) rawResponse;
-
-            if (response.containsKey("route") && response.get("route") != null) {
-                List<Map<String, Integer>> route = (List<Map<String, Integer>>) response.get("route");
-                movementSimulator.startSimulation(id, route);
-                return "Simularea a pornit! Mașina se mișcă...";
-            } else {
-                return "Eroare: C++ a răspuns, dar nu a trimis nicio rută! Răspuns: " + response;
-            }
+        if (response instanceof Map && ((Map<?, ?>) response).containsKey("error")) {
+            return "Eroare de conexiune: " + ((Map<?, ?>) response).get("error");
         }
+        Map<String, Object> routeData = (Map<String, Object>) response;
+        List<Map<String, Integer>> route = (List<Map<String, Integer>>) routeData.get("route");
 
-        return "Eroare critică: Serviciul de C++ nu a returnat un obiect valid.";
+        movementSimulator.startSimulation(id, route);
+        return "Simularea a pornit cu succes!";
     }
 
     @PostMapping
