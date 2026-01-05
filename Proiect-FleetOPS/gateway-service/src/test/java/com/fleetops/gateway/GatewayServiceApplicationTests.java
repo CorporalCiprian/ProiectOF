@@ -1,4 +1,4 @@
-package com.fleetops.gateway_service;
+package com.fleetops.gateway;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;

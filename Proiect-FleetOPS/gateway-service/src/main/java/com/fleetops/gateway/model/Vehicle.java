@@ -1,4 +1,4 @@
-package com.fleetops.gateway_service.model;
+package com.fleetops.gateway.model;
 
 import jakarta.persistence.*;
 import lombok.Data;

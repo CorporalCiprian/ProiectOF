@@ -21,5 +21,5 @@ int main() {
         return crow::response(response);
     });
 
-    app.port(8081).multithreaded().run();
+    app.bindaddr("0.0.0.0").port(8081).multithreaded().run();
 }

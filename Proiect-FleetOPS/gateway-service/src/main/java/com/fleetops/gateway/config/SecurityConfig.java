@@ -1,4 +1,4 @@
-package com.fleetops.gateway_service.config;
+package com.fleetops.gateway.config;
 
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
