@@ -24,6 +24,7 @@ services:
       - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/fleet_db
       - SPRING_DATASOURCE_USERNAME=postgres
       - SPRING_DATASOURCE_PASSWORD=1q2w3e
+      - ROUTING_SERVICE_URL=http://routing-service:8081
     depends_on:
       - db
       - routing-service
