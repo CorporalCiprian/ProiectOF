@@ -19,20 +19,19 @@ public class MovementSimulator {
     private VehicleRepository vehicleRepository;
 
     @Async
-    public void startSimulation(Long vehicleId, List<Map<String, Integer>> route) {
-        for (Map<String, Integer> point : route) {
+    public void startSimulation(Long vehicleId, List<Map<String, Double>> route) {
+        for (Map<String, Double> point : route) {
             try {
                 Thread.sleep(2000);
 
                 Vehicle v = vehicleRepository.findById(vehicleId).get();
+                // Folosim .doubleValue() pentru siguranță
                 v.setCurrentX(point.get("x"));
                 v.setCurrentY(point.get("y"));
                 v.setStatus("MOVING");
                 vehicleRepository.save(v);
 
                 messagingTemplate.convertAndSend("/topic/vehicles", v);
-
-                System.out.println("Vehicul " + vehicleId + " mutat la: " + point.get("x") + "," + point.get("y"));
             } catch (InterruptedException e) {
                 e.printStackTrace();
             }
