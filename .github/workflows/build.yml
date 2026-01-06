@@ -2,7 +2,7 @@ name: Java & C++ CI Build
 
 on:
   push:
-    branches: [ "main" ] 
+    branches: [ "main" ]
 
 jobs:
   build-java:
@@ -16,13 +16,12 @@ jobs:
           distribution: 'temurin'
           cache: maven
       
-      - name: Build Gateway
-        run: mvn -f gateway-service/pom.xml clean package -DskipTests
+      - name: Build Gateway with Maven
+        run: mvn -f gateway-service/pom.xml clean package -DskipTests -B
 
   build-docker:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - name: Build Docker Images
-        # Am schimbat docker-compose în 'docker compose'
         run: docker compose build
