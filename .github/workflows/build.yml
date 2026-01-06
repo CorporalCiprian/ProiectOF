@@ -21,7 +21,7 @@ jobs:
 
       - name: Build Gateway with Maven
         run: mvn clean package -DskipTests
-        working-directory: ./gateway
+        working-directory: proiect-FleetOPS/gateway-service
 
   build-cpp:
     runs-on: ubuntu-latest
@@ -37,11 +37,11 @@ jobs:
           cd build
           cmake ..
           make
-        working-directory: ./path-calculator
+        working-directory: proiect-FleetOPS/routing-service
 
   build-docker:
     runs-on: ubuntu-latest
-    needs: [build-java] # Așteaptă build-ul de Java ca să existe fișierul .jar
+    needs: [build-java] 
     steps:
       - uses: actions/checkout@v4
 
@@ -50,8 +50,8 @@ jobs:
 
       - name: Build Gateway Docker Image
         run: |
-          docker build -t gateway-service ./gateway
+          docker build -t gateway-service proiect-FleetOPS/gateway-service
           
       - name: Build Path Calculator Docker Image
         run: |
-          docker build -t path-calculator-service ./path-calculator
+          docker build -t path-calculator-service proiect-FleetOPS/routing-service
