@@ -21,7 +21,7 @@ jobs:
 
       - name: Build Gateway with Maven
         run: mvn clean package -DskipTests
-        working-directory: gateway-service
+        working-directory: ProiectOF/gateway-service
 
   build-cpp:
     runs-on: ubuntu-latest
@@ -37,7 +37,7 @@ jobs:
           cd build
           cmake ..
           make
-        working-directory: routing-service
+        working-directory: ProiectOF/routing-service
 
   build-docker:
     runs-on: ubuntu-latest
@@ -50,8 +50,8 @@ jobs:
 
       - name: Build Gateway Docker Image
         run: |
-          docker build -t gateway-service gateway-service
+          docker build -t gateway-service ProiectOF/gateway-service
           
       - name: Build Path Calculator Docker Image
         run: |
-          docker build -t path-calculator-service routing-service
+          docker build -t routing-service ProiectOF/routing-service
