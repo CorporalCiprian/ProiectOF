@@ -9,6 +9,7 @@ import com.fleetops.gateway.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.web.bind.annotation.*;
 import com.fleetops.gateway.service.RoutingService;
+import org.springframework.http.MediaType;
 
 import java.util.ArrayList;
 import java.util.Map;
@@ -74,7 +75,10 @@ public class VehicleController {
 
         orderRepository.save(order);
 
-        movementSimulator.startSimulation(id, routeForSimulator);
+        v.setStatus("MOVING");
+        vehicleRepository.save(v);
+
+        movementSimulator.startSimulation(id, order.getId(), routeForSimulator);
 
         return "Comanda #" + order.getId() + " a pornit!";
     }
@@ -85,5 +89,19 @@ public class VehicleController {
             vehicle.setStatus("IDLE");
         }
         return vehicleRepository.save(vehicle);
+    }
+
+    @Autowired
+    private com.fleetops.gateway.service.StorageService storageService;
+
+    @PostMapping(value = "/{id}/upload-photo", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public String uploadVehiclePhoto(
+            @PathVariable Long id,
+            @RequestPart("file") org.springframework.web.multipart.MultipartFile file) {
+
+        vehicleRepository.findById(id).orElseThrow(() -> new RuntimeException("Vehicul inexistent"));
+
+        String fileName = "vehicle_" + id + "_" + file.getOriginalFilename();
+        return storageService.uploadFile(fileName, file);
     }
 }

@@ -1,6 +1,7 @@
 package com.fleetops.gateway.service;
 
 import com.fleetops.gateway.model.Vehicle;
+import com.fleetops.gateway.repository.OrderRepository;
 import com.fleetops.gateway.repository.VehicleRepository;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
@@ -18,8 +19,11 @@ public class MovementSimulator {
     @Autowired
     private VehicleRepository vehicleRepository;
 
+    @Autowired
+    private com.fleetops.gateway.repository.OrderRepository orderRepository;
+
     @Async
-    public void startSimulation(Long vehicleId, List<Map<String, Double>> route) {
+    public void startSimulation(Long vehicleId, Long orderId, List<Map<String, Double>> route) {
         for (Map<String, Double> point : route) {
             try {
                 Thread.sleep(2000);
@@ -40,5 +44,11 @@ public class MovementSimulator {
         Vehicle v = vehicleRepository.findById(vehicleId).get();
         v.setStatus("IDLE");
         vehicleRepository.save(v);
+
+        orderRepository.findById(orderId).ifPresent(order -> {
+            order.setStatus("COMPLETED");
+            orderRepository.save(order);
+            System.out.println("Comanda " + orderId + " a fost finalizată cu succes!");
+        });
     }
 }

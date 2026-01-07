@@ -42,5 +42,11 @@ int main() {
         return crow::response(200, response);
     });
 
+    CROW_ROUTE(app, "/health")([]{
+        crow::json::wvalue x;
+        x["status"] = "OK";
+        return x;
+    });
+
     app.bindaddr("0.0.0.0").port(8081).multithreaded().run();
 }
