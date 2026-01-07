@@ -63,3 +63,12 @@ services:
       interval: 5s
       timeout: 5s
       retries: 5
+  frontend:
+    image: nginx:alpine
+    container_name: fleet_frontend
+    ports:
+      - "3000:80"
+    volumes:
+      - ./frontend:/usr/share/nginx/html
+    depends_on:
+      - gateway-service

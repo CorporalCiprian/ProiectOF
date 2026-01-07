@@ -20,7 +20,7 @@ public class MovementSimulator {
     private VehicleRepository vehicleRepository;
 
     @Autowired
-    private com.fleetops.gateway.repository.OrderRepository orderRepository;
+    private OrderRepository orderRepository;
 
     @Async
     public void startSimulation(Long vehicleId, Long orderId, List<Map<String, Double>> route) {
@@ -29,7 +29,6 @@ public class MovementSimulator {
                 Thread.sleep(2000);
 
                 Vehicle v = vehicleRepository.findById(vehicleId).get();
-                // Folosim .doubleValue() pentru siguranță
                 v.setCurrentX(point.get("x"));
                 v.setCurrentY(point.get("y"));
                 v.setStatus("MOVING");
@@ -37,7 +36,7 @@ public class MovementSimulator {
 
                 messagingTemplate.convertAndSend("/topic/vehicles", v);
             } catch (InterruptedException e) {
-                e.printStackTrace();
+                Thread.currentThread().interrupt();
             }
         }
 
@@ -45,10 +44,11 @@ public class MovementSimulator {
         v.setStatus("IDLE");
         vehicleRepository.save(v);
 
+        messagingTemplate.convertAndSend("/topic/vehicles", v);
+
         orderRepository.findById(orderId).ifPresent(order -> {
             order.setStatus("COMPLETED");
             orderRepository.save(order);
-            System.out.println("Comanda " + orderId + " a fost finalizată cu succes!");
         });
     }
 }

@@ -1,12 +1,16 @@
 package com.fleetops.gateway.controller;
 
+import com.fleetops.gateway.dto.TripRequest;
 import com.fleetops.gateway.model.Order;
 import com.fleetops.gateway.model.RoutePoint;
 import com.fleetops.gateway.repository.OrderRepository;
 import com.fleetops.gateway.service.MovementSimulator;
 import com.fleetops.gateway.model.Vehicle;
 import com.fleetops.gateway.repository.VehicleRepository;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import com.fleetops.gateway.service.RoutingService;
 import org.springframework.http.MediaType;
@@ -18,6 +22,8 @@ import java.util.List;
 @RestController
 @RequestMapping("/api/vehicles")
 public class VehicleController {
+
+    private final Counter orderCounter;
 
     @Autowired
     private VehicleRepository vehicleRepository;
@@ -44,43 +50,71 @@ public class VehicleController {
     @Autowired
     private OrderRepository orderRepository;
 
+    public VehicleController(MeterRegistry registry) {
+        this.orderCounter = Counter.builder("fleet.orders.started")
+                .description("Numarul total de comenzi lansate")
+                .register(registry);
+    }
+
     @PostMapping("/{id}/start-trip")
-    public String startTrip(@PathVariable Long id, @RequestBody Map<String, Double> dest) {
+    public ResponseEntity<String> startTrip(@PathVariable Long id, @RequestBody TripRequest request) {
         Vehicle v = vehicleRepository.findById(id).orElseThrow();
 
-        Object response = routingService.getRouteFromCpp(v.getCurrentX(), v.getCurrentY(), dest.get("x"), dest.get("y"));
+        if (!"IDLE".equals(v.getStatus())) {
+            return ResponseEntity.status(400).body("Vehiculul este deja intr-o cursa!");
+        }
 
-        if (response instanceof Map && ((Map<?, ?>) response).containsKey("error")) {
-            return "Eroare: " + ((Map<?, ?>) response).get("error");
+        Object routeToPickup = routingService.getRouteFromCpp(
+                v.getCurrentX(), v.getCurrentY(),
+                request.getStartX(), request.getStartY()
+        );
+
+        Object routeToDest = routingService.getRouteFromCpp(
+                request.getStartX(), request.getStartY(),
+                request.getEndX(), request.getEndY()
+        );
+
+        if (isError(routeToPickup) || isError(routeToDest)) {
+            return ResponseEntity.status(500).body("Eroare la calcularea traseului!");
         }
 
         Order order = new Order();
         order.setVehicleId(id);
-        order.setStartX(v.getCurrentX());
-        order.setStartY(v.getCurrentY());
-        order.setEndX(dest.get("x"));
-        order.setEndY(dest.get("y"));
+        order.setStartX(request.getStartX());
+        order.setStartY(request.getStartY());
+        order.setEndX(request.getEndX());
+        order.setEndY(request.getEndY());
         order.setStatus("IN_PROGRESS");
 
+        List<Map<String, Double>> finalRouteForSimulator = new ArrayList<>();
+        processRouteResponse(routeToPickup, order, finalRouteForSimulator);
+        processRouteResponse(routeToDest, order, finalRouteForSimulator);
+
+        orderRepository.save(order);
+        v.setStatus("MOVING");
+        vehicleRepository.save(v);
+
+        orderCounter.increment();
+        movementSimulator.startSimulation(id, order.getId(), finalRouteForSimulator);
+
+        return ResponseEntity.ok("Comanda #" + order.getId() + " a pornit!");
+    }
+
+    private void processRouteResponse(Object response, Order order, List<Map<String, Double>> simulatorList) {
         Map<String, Object> routeData = (Map<String, Object>) response;
         List<Map<String, Object>> routePointsRaw = (List<Map<String, Object>>) routeData.get("route");
-        List<Map<String, Double>> routeForSimulator = new ArrayList<>();
 
         for (Map<String, Object> p : routePointsRaw) {
             double px = ((Number) p.get("x")).doubleValue();
             double py = ((Number) p.get("y")).doubleValue();
+
             order.getRoute().add(new RoutePoint(null, px, py, order));
-            routeForSimulator.add(Map.of("x", px, "y", py));
+            simulatorList.add(Map.of("x", px, "y", py));
         }
+    }
 
-        orderRepository.save(order);
-
-        v.setStatus("MOVING");
-        vehicleRepository.save(v);
-
-        movementSimulator.startSimulation(id, order.getId(), routeForSimulator);
-
-        return "Comanda #" + order.getId() + " a pornit!";
+    private boolean isError(Object response) {
+        return response instanceof Map && ((Map<?, ?>) response).containsKey("error");
     }
 
     @PostMapping

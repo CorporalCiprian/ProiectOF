@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html lang="ro">
+<head>
+    <meta charset="UTF-8">
+    <title>FleetOps Brașov GPS</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body { margin: 0; font-family: 'Segoe UI', sans-serif; background: #121212; color: white; display: flex; height: 100vh; overflow: hidden; }
+        #loginOverlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: #121212; z-index: 2000; display: flex; align-items: center; justify-content: center; }
+        .login-box { background: #1e1e1e; padding: 40px; border-radius: 10px; width: 320px; text-align: center; border: 1px solid #333; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
+        .sidebar { width: 360px; background: #1e1e1e; padding: 25px; border-right: 2px solid #333; box-shadow: 5px 0 15px rgba(0,0,0,0.5); z-index: 1000; overflow-y: auto; }
+        #map { flex-grow: 1; background: #1a1a1a; height: 100vh; }
+        h2 { color: #00d4ff; margin-top: 0; border-bottom: 1px solid #333; padding-bottom: 10px; font-size: 20px; }
+        .form-group { margin-bottom: 15px; }
+        label { display: block; margin-bottom: 8px; color: #bbb; font-size: 12px; text-transform: uppercase; }
+        input, select { width: 100%; padding: 12px; background: #2d2d2d; border: 1px solid #444; color: white; border-radius: 6px; box-sizing: border-box; outline: none; margin-bottom: 10px; }
+        button { width: 100%; padding: 14px; background: #00d4ff; border: none; color: #121212; font-weight: bold; border-radius: 6px; cursor: pointer; transition: 0.3s; }
+        button:hover { background: #0099cc; }
+        #statusUpdate { margin-top: 20px; padding: 15px; border-radius: 6px; background: #252525; font-size: 13px; display: none; border-left: 4px solid #00d4ff; line-height: 1.4; }
+        .section-title { font-size: 11px; color: #00d4ff; margin-bottom: 10px; font-weight: bold; }
+    </style>
+</head>
+<body>
+
+<div id="loginOverlay">
+    <div class="login-box">
+        <h2 style="border:none">🏙️ Fleet Login</h2>
+        <input type="text" id="userLogin" placeholder="Utilizator">
+        <input type="password" id="passLogin" placeholder="Parolă">
+        <button onclick="handleLogin()">AUTENTIFICARE</button>
+    </div>
+</div>
+
+<div class="sidebar">
+    <h2>🚚 GPS Dispatcher</h2>
+    <div class="form-group">
+        <label>Vehicul</label>
+        <select id="vehicleSelect"><option>Încărcare...</option></select>
+    </div>
+    <div class="section-title">TRASEU COMANDĂ</div>
+    <div class="form-group">
+        <label>Punct Ridicare (X/Y)</label>
+        <div style="display:flex; gap:10px">
+            <input type="number" id="startX" placeholder="X Start">
+            <input type="number" id="startY" placeholder="Y Start">
+        </div>
+    </div>
+    <div class="form-group">
+        <label>Destinație (X/Y)</label>
+        <div style="display:flex; gap:10px">
+            <input type="number" id="destX" placeholder="X Dest">
+            <input type="number" id="destY" placeholder="Y Dest">
+        </div>
+    </div>
+    <button onclick="sendOrder()">LANSEAZĂ CURSA</button>
+    <div id="statusUpdate"></div>
+</div>
+
+<div id="map"></div>
+
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/sockjs-client/1.6.1/sockjs.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/stomp.js/2.3.3/stomp.min.js"></script>
+
+<script>
+    var brasovCenter = [45.6427, 25.5887];
+    var map = L.map('map').setView(brasovCenter, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png').addTo(map);
+    var markers = {};
+
+    function getAuth() { 
+        return 'Basic ' + sessionStorage.getItem('fleetAuth'); 
+    }
+
+    function handleLogin() {
+        const u = document.getElementById('userLogin').value;
+        const p = document.getElementById('passLogin').value;
+        const auth = btoa(u + ':' + p);
+        fetch('http://localhost:8080/api/vehicles', { headers: { 'Authorization': 'Basic ' + auth } })
+        .then(res => {
+            if(res.ok) {
+                sessionStorage.setItem('fleetAuth', auth);
+                document.getElementById('loginOverlay').style.display = 'none';
+                initApp();
+            } else alert("Date incorecte!");
+        });
+    }
+
+    function initApp() {
+        fetchVehicles();
+        var socket = new SockJS('http://localhost:8080/ws-fleet');
+        var stompClient = Stomp.over(socket);
+        stompClient.debug = null;
+        stompClient.connect({ 'Authorization': getAuth() }, function () {
+            stompClient.subscribe('/topic/vehicles', function (v) { 
+                const data = JSON.parse(v.body);
+                updateMarker(data);
+                if(data.status === "IDLE") fetchVehicles();
+            });
+        });
+    }
+
+    function updateMarker(v) {
+        const pos = [brasovCenter[0] + (v.currentY * 0.00001), brasovCenter[1] + (v.currentX * 0.00001)];
+        if (markers[v.id]) {
+            markers[v.id].setLatLng(pos);
+            markers[v.id].getPopup().setContent(`<b>${v.name}</b><br>Status: ${v.status}`);
+        } else {
+            markers[v.id] = L.marker(pos).addTo(map).bindPopup(`<b>${v.name}</b><br>Status: ${v.status}`).openPopup();
+        }
+    }
+
+    async function fetchVehicles() {
+        const res = await fetch('http://localhost:8080/api/vehicles', { headers: { 'Authorization': getAuth() } });
+        const data = await res.json();
+        const sel = document.getElementById('vehicleSelect');
+        const currentVal = sel.value;
+        sel.innerHTML = '';
+        data.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v.id;
+            opt.text = `${v.name} (${v.status})`;
+            if(v.id == currentVal) opt.selected = true;
+            sel.appendChild(opt);
+            updateMarker(v);
+        });
+    }
+
+    async function sendOrder() {
+        const id = document.getElementById('vehicleSelect').value;
+        const body = {
+            startX: parseFloat(document.getElementById('startX').value),
+            startY: parseFloat(document.getElementById('startY').value),
+            endX: parseFloat(document.getElementById('destX').value),
+            endY: parseFloat(document.getElementById('destY').value)
+        };
+        const status = document.getElementById('statusUpdate');
+        status.style.display = "block";
+        status.innerHTML = "⌛ Validare și calcul rută...";
+        try {
+            const res = await fetch(`http://localhost:8080/api/vehicles/${id}/start-trip`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'Authorization': getAuth() },
+                body: JSON.stringify(body)
+            });
+            const message = await res.text();
+            if(res.ok) {
+                status.innerHTML = "✅ " + message;
+                fetchVehicles();
+            } else {
+                status.innerHTML = "<b style='color:#ff4444'>❌ Eroare:</b> " + message;
+            }
+        } catch (e) { status.innerHTML = "❌ Eroare rețea!"; }
+    }
+
+    if(sessionStorage.getItem('fleetAuth')) {
+        document.getElementById('loginOverlay').style.display = 'none';
+        initApp();
+    }
+    setTimeout(() => { map.invalidateSize(); }, 500);
+</script>
+</body>
+</html>
