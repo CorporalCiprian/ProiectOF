@@ -39,7 +39,7 @@ public class VehicleController {
     @GetMapping("/{id}/calculate-path")
     public Object calculatePath(@PathVariable Long id, @RequestParam double destX, @RequestParam double destY) {
         Vehicle v = vehicleRepository.findById(id)
-                .orElseThrow(() -> new RuntimeException("Camionul nu există în baza de date!"));
+                .orElseThrow(() -> new RuntimeException("Vehiculul nu există în baza de date!"));
 
         return routingService.getRouteFromCpp(v.getCurrentX(), v.getCurrentY(), destX, destY);
     }

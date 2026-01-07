@@ -1,31 +1,48 @@
+# Security & Credentials
 .env
+*.env
+docker-compose.override.yml
 
-### JAVA (Spring Boot) ###
+# JAVA (Spring Boot / Maven)
 target/
+!.mvn/wrapper/maven-wrapper.jar
 *.class
 *.jar
 *.war
 *.ear
 *.log
-.mvn/wrapper/maven-wrapper.jar
+/ProiectOF/gateway-service/HELP.md
+/ProiectOF/gateway-service/.mvn/
+/ProiectOF/gateway-service/.classpath
+/ProiectOF/gateway-service/.project
+/ProiectOF/gateway-service/.settings/
 
-### C++ ###
+# C++ (CMake & Compilation)
 build/
 cmake-build-debug/
 cmake-build-release/
+CMakeFiles/
+CMakeCache.txt
+CMakeScripts/
+cmake_install.cmake
+install_manifest.txt
+/ProiectOF/routing-service/routing_app
 *.o
 *.obj
 *.exe
 *.out
-/routing-service/routing_app
+*.a
+*.lib
 
-### IDE ###
+# IDE & OS Specific
 .idea/
 .vscode/
 *.iml
 *.suo
 *.user
 .DS_Store
+Thumbs.db
+desktop.ini
 
-### Docker ###
+# Docker & Persistence
 .docker/

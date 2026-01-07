@@ -7,53 +7,65 @@ on:
     branches: [ "main" ]
 
 jobs:
-  build-java:
+  java-gate:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           java-version: '21'
           distribution: 'temurin'
           cache: maven
-
-      - name: Build Gateway with Maven
-        run: mvn clean package -DskipTests
+      - name: Build & Test
+        run: mvn clean package
         working-directory: ProiectOF/gateway-service
+      - name: Archive JAR
+        uses: actions/upload-artifact@v4
+        with:
+          name: gateway-jar
+          path: ProiectOF/gateway-service/target/*.jar
 
-  build-cpp:
+  cpp-route:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      
-      - name: Install dependencies
+      - name: Install Tools
+        run: sudo apt-get update && sudo apt-get install -y cmake g++ libasio-dev
+      - name: Compile
         run: |
-          sudo apt-get update 
-          sudo apt-get install -y cmake g++ libasio-dev
-
-      - name: Configure and Build C++
-        run: |
-          mkdir build
-          cd build
+          mkdir build && cd build
           cmake ..
           make
         working-directory: ProiectOF/routing-service
 
-  build-docker:
+  deploy-docker:
     runs-on: ubuntu-latest
-    needs: [build-java] 
+    needs: [java-gate, cpp-route]
     steps:
       - uses: actions/checkout@v4
+      - name: Get JAR
+        uses: actions/download-artifact@v4
+        with:
+          name: gateway-jar
+          path: ProiectOF/gateway-service/target/
+      
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Build & Push Gateway
+        uses: docker/build-push-action@v5
+        with:
+          context: ProiectOF/gateway-service
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/gateway-service:latest
 
-      - name: Build Gateway Docker Image
-        run: |
-          docker build -t gateway-service ProiectOF/gateway-service
-          
-      - name: Build Path Calculator Docker Image
-        run: |
-          docker build -t routing-service ProiectOF/routing-service
+      - name: Build & Push Routing
+        uses: docker/build-push-action@v5
+        with:
+          context: ProiectOF/routing-service
+          push: true
+          tags: ${{ secrets.DOCKERHUB_USERNAME }}/routing-service:latest
