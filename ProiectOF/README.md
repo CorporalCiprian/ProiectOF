@@ -165,14 +165,34 @@ docker compose ps
 
 Toate serviciile ar trebui să fie `healthy` sau `running`.
 
-4️⃣ **Accesează aplicația**
+4️⃣ **Configurare inițială — ⚠️ IMPORTANT**
 
-| Serviciu | URL | Credențiale |
-|----------|-----|-------------|
-| 🌐 **Frontend** | http://localhost:3000 | `Capitanu` / `123` |
-| 📖 **Swagger UI** | http://localhost:8080/swagger-ui.html | Same |
-| 💚 **Health Check** | http://localhost:8080/actuator/health | Public |
-| 📦 **MinIO Console** | http://localhost:9001 | `admin` / `password123` |
+Înainte de prima rulare, **trebuie să creezi propriul fișier `.env`** cu credențialele tale:
+
+```powershell
+# Creează fișierul .env în rădăcina proiectului
+Copy-Item .env.example .env
+# SAU creează-l manual (vezi secțiunea Configurare mai jos)
+```
+
+Editează `.env` și setează **credențiale unice**:
+```env
+POSTGRES_USER=propriulTauUser
+POSTGRES_PASSWORD=parolaSigura123!
+INITIAL_ADMIN_USERNAME=NumeleTau
+INITIAL_ADMIN_PASSWORD=ParolaTaSigura!
+MINIO_ROOT_USER=minioAdmin
+MINIO_ROOT_PASSWORD=minioSecurePass!
+```
+
+5️⃣ **Accesează aplicația**
+
+| Serviciu | URL | Note |
+|----------|-----|------|
+| 🌐 **Frontend** | http://localhost:3000 | Folosește credențialele din `.env` |
+| 📖 **Swagger UI** | http://localhost:8080/swagger-ui.html | Same credentials |
+| 💚 **Health Check** | http://localhost:8080/actuator/health | Public (fără auth) |
+| 📦 **MinIO Console** | http://localhost:9001 | Credențiale MinIO din `.env` |
 
 🎉 **Gata! Aplicația rulează!**
 
@@ -180,32 +200,51 @@ Toate serviciile ar trebui să fie `healthy` sau `running`.
 
 ## ⚙️ Configurare
 
-Toate configurările sunt centralizate în fișierul **`.env`** din rădăcina proiectului:
+### 🔐 Crearea fișierului `.env` (OBLIGATORIU)
+
+**⚠️ NU folosi credențialele din exemple! Creează-ți propriul `.env`**
+
+Toate configurările se fac în fișierul **`.env`** din rădăcina proiectului. 
+
+**Template `.env`:**
 
 ```env
 # 🗄️ Database Configuration
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=1q2w3e
+POSTGRES_USER=propriulTauUser
+POSTGRES_PASSWORD=parolaSiguràComplexă123!
 POSTGRES_DB=fleet_db
 
 # 🔗 Microservices Communication
 ROUTING_SERVICE_URL=http://routing-service:8081/
 
 # 📦 MinIO Storage
-MINIO_ROOT_USER=admin
-MINIO_ROOT_PASSWORD=password123
+MINIO_ROOT_USER=minioUserPropriu
+MINIO_ROOT_PASSWORD=minioParolaSigură456!
 
-# 👤 Initial Admin User
-INITIAL_ADMIN_USERNAME=Capitanu
-INITIAL_ADMIN_PASSWORD=123
+# 👤 Initial Admin User (pentru autentificare în aplicație)
+INITIAL_ADMIN_USERNAME=NumeleTau
+INITIAL_ADMIN_PASSWORD=ParolaTaSigură789!
 ```
 
-💡 **Tip:** Modifică `.env` pentru credențiale personalizate, apoi restart:
+### 📝 Pași de Configurare
+
+1️⃣ **Creează fișierul `.env`** în `ProiectOF/` (alături de `docker-compose.yml`)
+
+2️⃣ **Completează cu valori personalizate** — folosește credențiale puternice!
+
+3️⃣ **Verifică că `.env` NU este în Git** (este în `.gitignore` by default)
+
+4️⃣ **Pornește serviciile:**
 
 ```powershell
 docker compose down -v
 docker compose up -d --build
 ```
+
+💡 **Notă:** Credențialele setate în `.env` vor fi folosite pentru:
+- Autentificare în frontend (username/password)
+- Conectare la baza de date PostgreSQL
+- Acces la consola MinIO
 
 ---
 
@@ -213,9 +252,9 @@ docker compose up -d --build
 
 ### 1️⃣ Autentificare
 
-Deschide http://localhost:3000 și autentifică-te cu:
-- **User:** `Capitanu`
-- **Parola:** `123`
+Deschide http://localhost:3000 și autentifică-te cu credențialele setate în `.env`:
+- **Username:** Valoarea `INITIAL_ADMIN_USERNAME` din `.env`
+- **Parola:** Valoarea `INITIAL_ADMIN_PASSWORD` din `.env`
 
 ![Login Screen](https://img.shields.io/badge/🔐-Login-blue)
 
@@ -295,7 +334,10 @@ Primești update-uri automate:
 ### PowerShell — Setup Auth Header
 
 ```powershell
-$auth = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("Capitanu:123"))
+# Folosește credențialele din .env
+$username = "NumeleTauDinEnv"
+$password = "ParolaTaDinEnv"
+$auth = "Basic " + [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${password}"))
 $headers = @{ Authorization = $auth }
 ```
 
@@ -342,8 +384,13 @@ Invoke-RestMethod -Uri "http://localhost:8080/api/vehicles/1/start-trip" `
 ### 📸 Upload Fotografie
 
 ```powershell
+# Generează header-ul de autentificare
+$username = "NumeleTauDinEnv"
+$password = "ParolaTaDinEnv"
+$base64Auth = [Convert]::ToBase64String([Text.Encoding]::ASCII.GetBytes("${username}:${password}"))
+
 curl.exe -X POST "http://localhost:8080/api/vehicles/1/upload-photo" `
-    -H "Authorization: Basic Q2FwaXRhbnU6MTIz" `
+    -H "Authorization: Basic $base64Auth" `
     -F "file=@C:\path\to\photo.jpg"
 ```
 
@@ -422,7 +469,7 @@ Aceasta recreează DB-ul cu credențialele din `.env`.
 docker compose logs minio
 ```
 
-Accesează consolă: http://localhost:9001 (`admin` / `password123`)
+Accesează consolă: http://localhost:9001 (folosește credențialele `MINIO_ROOT_USER` și `MINIO_ROOT_PASSWORD` din `.env`)
 
 ### ❌ Upload foto eșuat
 
